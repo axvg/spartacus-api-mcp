@@ -1,7 +1,7 @@
 {
   "name": "spartacus-api-mcp",
   "version": "0.1.0",
-  "description": "Reads node_modules/@spartacus and returns the API declaration for the version you have installed",
+  "description": "MCP server for SAP Spartacus: public import paths, API signatures and members, read from the version installed in your storefront",
   "license": "MIT",
   "author": "axvg",
   "type": "module",
@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "start": "node index.js",
-    "test": "node index.js --self-check"
+    "test": "node --test test/*.test.js",
+    "self-check": "node index.js --self-check"
   },
   "keywords": [
     "mcp",
@@ -34,6 +35,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1"
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "typescript": "~5.9.3"
   }
 }
