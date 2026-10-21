@@ -2,7 +2,7 @@ export const tools = [
   {
     name: 'spartacus_search_symbols',
     description:
-      'Search @spartacus declarations by name in the .d.ts files of node_modules. Returns name, kind, package, version, file and line.',
+      'Search @spartacus declarations by name in the .d.ts files of node_modules. Returns name, kind, package, version, the public import specifier, file and line.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -20,7 +20,7 @@ export const tools = [
   {
     name: 'spartacus_get_signature',
     description:
-      'Return the full declaration of a @spartacus symbol with the package, the file, the line and the package version that the repository runs.',
+      'Return the full declaration of a @spartacus symbol with the public import specifier to use, the package, the file, the line and the version that the repository runs.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -28,7 +28,8 @@ export const tools = [
         package: { type: 'string', description: 'Filter by package when the name repeats' },
         member: {
           type: 'string',
-          description: 'Return only the lines of the declaration that match this member',
+          description:
+            'Return only the declaration of the members whose name matches this text, each one complete',
         },
       },
       required: ['name'],
