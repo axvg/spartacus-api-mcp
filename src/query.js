@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildIndex, memberOf } from './parser.js';
+import { buildIndex, membersOf } from './parser.js';
+import { findUsage } from './usage.js';
 
 // Installed versions, read without parsing anything. The index is rebuilt when this
 // changes, so an npm install does not leave the server answering with the old types.
@@ -75,17 +76,24 @@ export function createCatalog(repoRoot) {
     }
     return {
       repo: repoRoot,
-      results: hits.map((s) => ({
-        name: s.name,
-        kind: s.kind,
-        package: s.package,
-        version: s.version,
-        import: s.import,
-        file: s.file,
-        line: s.line,
-        aliasOf: s.aliasOf,
-        signature: member ? memberOf(s.signature, member) : s.signature,
-      })),
+      results: hits.map((s) => {
+        const common = {
+          name: s.name,
+          kind: s.kind,
+          package: s.package,
+          version: s.version,
+          import: s.import,
+          file: s.file,
+          line: s.line,
+          aliasOf: s.aliasOf,
+          doc: s.doc,
+        };
+        if (!member) return { ...common, signature: s.signature };
+        const members = membersOf(s.signature, member);
+        return members.length
+          ? { ...common, members }
+          : { ...common, error: `no member matches ${member}` };
+      }),
     };
   }
 
@@ -93,5 +101,18 @@ export function createCatalog(repoRoot) {
     return { repo: repoRoot, packages: getIndex().packages };
   }
 
-  return { repoRoot, spartacusRoot, getIndex, find, searchSymbols, getSignature, listPackages };
+  function findExamples(args) {
+    return findUsage(repoRoot, args);
+  }
+
+  return {
+    repoRoot,
+    spartacusRoot,
+    getIndex,
+    find,
+    searchSymbols,
+    getSignature,
+    listPackages,
+    findExamples,
+  };
 }
