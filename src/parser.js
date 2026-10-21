@@ -49,6 +49,23 @@ function nameOf(node) {
   return node.name && ts.isIdentifier(node.name) ? node.name.text : null;
 }
 
+// The .d.ts files keep the JSDoc of the source, so the text the authors wrote about a
+// symbol travels with its declaration.
+function docOf(node) {
+  const blocks = node.jsDoc ?? [];
+  const parts = [];
+  for (const block of blocks) {
+    if (typeof block.comment === 'string') parts.push(block.comment);
+    for (const tag of block.tags ?? []) {
+      const name = tag.tagName.text;
+      const value = typeof tag.comment === 'string' ? tag.comment : '';
+      const target = tag.name && ts.isIdentifier(tag.name) ? ` ${tag.name.text}` : '';
+      parts.push(`@${name}${target}${value ? ` ${value}` : ''}`.trim());
+    }
+  }
+  return parts.join('\n').trim() || undefined;
+}
+
 function declarationsOf(statement) {
   if (ts.isVariableStatement(statement)) {
     return statement.declarationList.declarations
@@ -90,6 +107,7 @@ function readFile(file, pkg, version, importPath) {
         import: importPath,
         file,
         line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+        doc: docOf(node),
         signature: node.getText(source),
       };
       symbols.push(symbol);
@@ -130,19 +148,20 @@ export function buildIndex(spartacusRoot) {
   return { symbols, packages };
 }
 
-// Returns the exact declaration of one member, parsed from the symbol signature.
-export function memberOf(signature, member) {
+// Returns the exact declaration of the matching members, parsed from the symbol signature,
+// each one with the JSDoc written above it.
+export function membersOf(signature, member) {
   const source = ts.createSourceFile('symbol.d.ts', signature, ts.ScriptTarget.Latest, true);
   const lower = member.toLowerCase();
   const found = [];
   const visit = (node) => {
     const name = node.name && ts.isIdentifier(node.name) ? node.name.text : null;
     if (name && name.toLowerCase().includes(lower) && node.parent !== source) {
-      found.push(node.getText(source));
+      found.push({ name, doc: docOf(node), signature: node.getText(source) });
       return;
     }
     ts.forEachChild(node, visit);
   };
   ts.forEachChild(source, (statement) => ts.forEachChild(statement, visit));
-  return found.length ? found.join('\n') : `member ${member} not found in the declaration`;
+  return found;
 }
