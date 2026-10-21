@@ -56,6 +56,29 @@ test('a type published only under an alias is internal under its own name', () =
   assert.equal(one('PublicDemoState').import, '@spartacus/demo/root');
 });
 
+test('a symbol published through a namespace reports the qualified access', () => {
+  const symbol = one('DemoAction');
+  assert.equal(symbol.exported, true);
+  assert.equal(symbol.import, '@spartacus/demo/root');
+  assert.equal(symbol.importName, 'DemoActions');
+  assert.equal(symbol.usage, 'DemoActions.DemoAction');
+});
+
+test('a plain symbol repeats its name in importName and usage', () => {
+  const symbol = one('DemoFacade');
+  assert.equal(symbol.importName, 'DemoFacade');
+  assert.equal(symbol.usage, 'DemoFacade');
+});
+
+test('bundler plumbing stays out of the index', () => {
+  assert.equal(catalog.find('demoGroup_actions_d_DemoAction').length, 0);
+});
+
+test('search puts the exact name and the exported ones first', () => {
+  const names = catalog.searchSymbols({ query: 'Demo' }).results.map((s) => s.name);
+  assert.ok(names.indexOf('DemoFacade') < names.indexOf('DemoState'));
+});
+
 test('a parameter is not a member', () => {
   const [result] = catalog.getSignature({ name: 'DemoFacade', member: 'code' }).results;
   assert.match(result.error, /no member matches code/);
