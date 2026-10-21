@@ -11,10 +11,15 @@ locally, reads only, talks to no backend and needs no credential.
 
 - **Symbol search**: find classes, interfaces, enums, types, functions, constants and namespaces by
   name, filtered by kind or package.
-- **Public import path**: the specifier to import from, for example `@spartacus/cart/base/root`,
-  taken from the `exports` map of each package, not the physical file. A name the package does not
-  export says `exported: false`, carries no specifier, and names the alias it is published under,
-  so a generated import never uses a name that does not exist.
+- **Public import path**: `import` is the specifier, `importName` the name to write between the
+  braces and `usage` the expression to write in the code. They come from the `exports` map of each
+  package and from the export statements, not from the file path. A name the package does not
+  export says `exported: false` and carries no specifier, so a generated import never uses a name
+  that does not exist.
+- **Namespaces**: a symbol published inside a `declare namespace` reports the access that works,
+  for example `import { CartActions }` plus `CartActions.CartAction`.
+- **No bundler plumbing**: the renamed one line aliases the bundler leaves behind, 1357 of them in
+  a recent storefront, stay out of the index.
 - **Exact signatures**: the whole declaration as the compiler sees it, with no truncation.
 - **Members**: ask for one member and get its complete declaration, parameters and return type
   included. Only members declared on the type match, never the parameters of its methods.
@@ -81,6 +86,8 @@ The path is the root of the storefront, the folder that holds `node_modules`, no
   "version": "221121.11.0",
   "exported": true,
   "import": "@spartacus/order/root",
+  "importName": "OrderHistory",
+  "usage": "OrderHistory",
   "file": "node_modules/@spartacus/order/types/spartacus-order-root.d.ts",
   "line": 57,
   "signature": "interface OrderHistory {\n    code?: string;\n    ...\n}"
@@ -94,6 +101,18 @@ With `name: ActiveCartFacade` and `member: addEntry`:
   "name": "addEntry",
   "doc": "Add entry to active cart\n@param productCode\n@param quantity\n@param pickupStore",
   "signature": "abstract addEntry(productCode: string, quantity: number, pickupStore?: string): void;"
+}
+```
+
+`spartacus_get_signature` with `name: CartAction`, a type published through a namespace:
+
+```json
+{
+  "name": "CartAction",
+  "exported": true,
+  "import": "@spartacus/cart/base/core",
+  "importName": "CartActions",
+  "usage": "CartActions.CartAction"
 }
 ```
 
@@ -137,8 +156,6 @@ SKIP and exits with 0, so it does not break a pipeline with no storefront instal
 - It reads `<package>/types/**/*.d.ts`. A package that ships its types elsewhere is not indexed.
 - It does not resolve inheritance. Members a class gets from its parent are in the parent's
   declaration, not in the answer.
-- Exports declared inside a `declare namespace` block are not read, so a symbol published only
-  that way reports `exported: false`.
 - Aliases resolve inside one file. `export { X } from './other'` is not followed.
 - Examples come from the storefront being read. A symbol the project has never used returns none.
 - It does not list extension points. Which service to replace or which config to set is not in the
