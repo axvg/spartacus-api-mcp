@@ -79,6 +79,23 @@ test('search puts the exact name and the exported ones first', () => {
   assert.ok(names.indexOf('DemoFacade') < names.indexOf('DemoState'));
 });
 
+test('reports what a class extends', () => {
+  assert.deepEqual(one('ExtendedDemoService').extends, ['BaseDemoService']);
+});
+
+test('finds a member declared by the parent', () => {
+  const [result] = catalog.getSignature({ name: 'ExtendedDemoService', member: 'clear' }).results;
+  const [member] = result.members;
+  assert.equal(member.from, 'BaseDemoService');
+  assert.equal(member.signature, 'abstract clear(): void;');
+  assert.match(member.doc, /Clears the cached demo\./);
+});
+
+test('a member of the class itself carries no parent', () => {
+  const [result] = catalog.getSignature({ name: 'ExtendedDemoService', member: 'refresh' }).results;
+  assert.equal(result.members[0].from, undefined);
+});
+
 test('a parameter is not a member', () => {
   const [result] = catalog.getSignature({ name: 'DemoFacade', member: 'code' }).results;
   assert.match(result.error, /no member matches code/);
