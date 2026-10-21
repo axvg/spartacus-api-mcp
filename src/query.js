@@ -45,6 +45,11 @@ export function createCatalog(repoRoot) {
     return getIndex().symbols.filter((s) => s.name.toLowerCase() === lower);
   }
 
+  // Exact name first, then what can be imported, so the useful answer is at the top.
+  function rank(symbol, lower) {
+    return (symbol.name.toLowerCase() === lower ? 0 : 2) + (symbol.exported ? 0 : 1);
+  }
+
   function searchSymbols({ query, kind, package: pkg, limit = 30 }) {
     const lower = String(query).toLowerCase();
     const hits = getIndex()
@@ -54,17 +59,20 @@ export function createCatalog(repoRoot) {
           (!kind || s.kind === kind) &&
           (!pkg || s.package.includes(pkg))
       )
+      .sort((a, b) => rank(a, lower) - rank(b, lower))
       .slice(0, limit)
-      .map(({ name, kind, package: p, version, exported, import: specifier, exportedAs, file, line }) => ({
-        name,
-        kind,
-        package: p,
-        version,
-        exported: Boolean(exported),
-        import: specifier,
-        exportedAs,
-        file,
-        line,
+      .map((s) => ({
+        name: s.name,
+        kind: s.kind,
+        package: s.package,
+        version: s.version,
+        exported: Boolean(s.exported),
+        import: s.import,
+        importName: s.importName,
+        usage: s.usage,
+        exportedAs: s.exportedAs,
+        file: s.file,
+        line: s.line,
       }));
     return { repo: repoRoot, count: hits.length, results: hits };
   }
@@ -88,6 +96,8 @@ export function createCatalog(repoRoot) {
           // says so, and points at the public name when it has one.
           exported: Boolean(s.exported),
           import: s.import,
+          importName: s.importName,
+          usage: s.usage,
           exportedAs: s.exportedAs,
           file: s.file,
           line: s.line,
