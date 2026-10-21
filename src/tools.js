@@ -36,6 +36,20 @@ export const tools = [
     },
   },
   {
+    name: 'spartacus_find_examples',
+    description:
+      'Find where the storefront already uses a @spartacus symbol. Returns the file, the line, the import specifier that file uses and the surrounding code. The examples compile against the installed version.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Exact symbol name' },
+        limit: { type: 'number', description: 'Maximum results, default 10' },
+        dir: { type: 'string', description: 'Directory to scan, relative to the repository, default src' },
+      },
+      required: ['name'],
+    },
+  },
+  {
     name: 'spartacus_list_packages',
     description:
       'List the installed @spartacus packages with the version that the repository runs.',
