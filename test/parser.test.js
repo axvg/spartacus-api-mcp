@@ -50,8 +50,37 @@ test('reports the installed version', () => {
 
 test('a member answer carries the whole declaration', () => {
   const [result] = catalog.getSignature({ name: 'DemoFacade', member: 'load' }).results;
-  assert.match(result.signature, /abstract load\(code: string, options\?: \{/);
-  assert.match(result.signature, /force\?: boolean;/);
+  const [member] = result.members;
+  assert.equal(member.name, 'load');
+  assert.match(member.signature, /abstract load\(code: string, options\?: \{/);
+  assert.match(member.signature, /force\?: boolean;/);
+});
+
+test('carries the jsdoc of the symbol and of the member', () => {
+  const [result] = catalog.getSignature({ name: 'DemoFacade', member: 'load' }).results;
+  assert.equal(result.doc, 'Reads demo data.');
+  assert.match(result.members[0].doc, /Loads one demo by code\./);
+  assert.match(result.members[0].doc, /@param code Demo code/);
+});
+
+test('a member that does not exist answers with an error', () => {
+  const [result] = catalog.getSignature({ name: 'DemoFacade', member: 'nope' }).results;
+  assert.match(result.error, /no member matches nope/);
+});
+
+test('finds where the project already uses a symbol', () => {
+  const answer = catalog.findExamples({ name: 'DemoFacade' });
+  assert.equal(answer.count, 1);
+  const [first] = answer.results;
+  assert.equal(first.file, 'src/app/demo.component.ts');
+  assert.equal(first.line, 5);
+  assert.equal(first.import, "import { DemoFacade } from '@spartacus/demo/root'");
+  assert.match(first.snippet, /inject\(DemoFacade\)/);
+});
+
+test('reports a missing source directory instead of failing', () => {
+  const answer = catalog.findExamples({ name: 'DemoFacade', dir: 'nowhere' });
+  assert.match(answer.error, /no nowhere directory/);
 });
 
 test('a missing symbol answers with suggestions', () => {
