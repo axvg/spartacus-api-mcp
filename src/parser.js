@@ -66,6 +66,21 @@ function docOf(node) {
   return parts.join('\n').trim() || undefined;
 }
 
+// extends and implements, by name. Type arguments are dropped: the index is keyed by name
+// and a generic argument does not change which declaration to read next.
+function heritageOf(statement) {
+  const out = {};
+  for (const clause of statement.heritageClauses ?? []) {
+    const names = clause.types
+      .map((type) => (ts.isIdentifier(type.expression) ? type.expression.text : null))
+      .filter(Boolean);
+    if (!names.length) continue;
+    if (clause.token === ts.SyntaxKind.ExtendsKeyword) out.extends = names;
+    else out.implements = names;
+  }
+  return out;
+}
+
 function declarationsOf(statement) {
   if (ts.isVariableStatement(statement)) {
     return statement.declarationList.declarations
@@ -139,6 +154,7 @@ function readFile(file, pkg, version, importPath) {
         doc: docOf(node),
         signature: node.getText(source),
         exported: hasExportModifier(statement),
+        ...heritageOf(statement),
       };
       symbols.push(symbol);
       declared.set(name, symbol);
