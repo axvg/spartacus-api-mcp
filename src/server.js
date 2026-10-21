@@ -19,6 +19,7 @@ export async function startServer(catalog) {
     let payload;
     if (request.params.name === 'spartacus_search_symbols') payload = catalog.searchSymbols(args);
     else if (request.params.name === 'spartacus_get_signature') payload = catalog.getSignature(args);
+    else if (request.params.name === 'spartacus_find_examples') payload = catalog.findExamples(args);
     else if (request.params.name === 'spartacus_list_packages') payload = catalog.listPackages();
     else payload = { error: `unknown tool ${request.params.name}` };
     return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
