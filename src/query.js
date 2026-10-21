@@ -102,15 +102,45 @@ export function createCatalog(repoRoot) {
           file: s.file,
           line: s.line,
           aliasOf: s.aliasOf,
+          extends: s.extends,
+          implements: s.implements,
           doc: s.doc,
         };
         if (!member) return { ...common, signature: s.signature };
-        const members = membersOf(s.signature, member);
+        const members = inheritedMembers(s, member);
         return members.length
           ? { ...common, members }
           : { ...common, error: `no member matches ${member}` };
       }),
     };
+  }
+
+  // A class or interface answers for what its parents declare too, so asking a child for a
+  // member does not come back empty when the parent holds it.
+  function withAncestors(symbol, seen = new Set()) {
+    if (seen.has(symbol.name)) return [];
+    seen.add(symbol.name);
+    const chain = [symbol];
+    for (const parent of [...(symbol.extends ?? []), ...(symbol.implements ?? [])]) {
+      const candidates = find(parent);
+      const best =
+        candidates.find((c) => c.file === symbol.file) ??
+        candidates.find((c) => c.package === symbol.package) ??
+        candidates[0];
+      if (best) chain.push(...withAncestors(best, seen));
+    }
+    return chain;
+  }
+
+  function inheritedMembers(symbol, member) {
+    const out = [];
+    for (const type of withAncestors(symbol)) {
+      for (const found of membersOf(type.signature, member)) {
+        if (out.some((m) => m.name === found.name)) continue;
+        out.push(type === symbol ? found : { ...found, from: type.name });
+      }
+    }
+    return out;
   }
 
   function listPackages() {
