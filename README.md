@@ -23,6 +23,8 @@ locally, reads only, talks to no backend and needs no credential.
 - **Exact signatures**: the whole declaration as the compiler sees it, with no truncation.
 - **Members**: ask for one member and get its complete declaration, parameters and return type
   included. Only members declared on the type match, never the parameters of its methods.
+- **Inheritance**: `extends` and `implements` travel with the symbol, and a member search walks the
+  chain. A member the parent declares comes back with `from` naming that parent.
 - **Re-export aliases**: names published through `export { X as Y }` and `export type { X as Y }`
   resolve to the declaration they rename, and carry `aliasOf`.
 - **JSDoc**: the documentation the Spartacus authors wrote travels with the declaration, for the
@@ -94,6 +96,18 @@ The path is the root of the storefront, the folder that holds `node_modules`, no
 }
 ```
 
+With `name: AsmAuthStorageService` and `member: getItem`, a member the parent declares:
+
+```json
+{
+  "name": "getItem",
+  "from": "AuthStorageService",
+  "doc": "Get parameter from the token (eg. access_token)
+@param key",
+  "signature": "getItem(key: string): any;"
+}
+```
+
 With `name: ActiveCartFacade` and `member: addEntry`:
 
 ```json
@@ -154,8 +168,8 @@ SKIP and exits with 0, so it does not break a pipeline with no storefront instal
 ## Limits
 
 - It reads `<package>/types/**/*.d.ts`. A package that ships its types elsewhere is not indexed.
-- It does not resolve inheritance. Members a class gets from its parent are in the parent's
-  declaration, not in the answer.
+- Inheritance resolves parents by name, so a parent that is not in the index, one from Angular or
+  RxJS for instance, ends the chain there.
 - Aliases resolve inside one file. `export { X } from './other'` is not followed.
 - Examples come from the storefront being read. A symbol the project has never used returns none.
 - It does not list extension points. Which service to replace or which config to set is not in the
