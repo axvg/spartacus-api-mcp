@@ -1,19 +1,43 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildIndex } from './parser.js';
+import { buildIndex, memberOf } from './parser.js';
 
-function membersOf(signature, member) {
-  const lower = member.toLowerCase();
-  return signature
-    .split('\n')
-    .filter((line) => line.toLowerCase().includes(lower))
-    .join('\n');
+// Installed versions, read without parsing anything. The index is rebuilt when this
+// changes, so an npm install does not leave the server answering with the old types.
+function versionStamp(spartacusRoot) {
+  const parts = [];
+  let entries = [];
+  try {
+    entries = readdirSync(spartacusRoot, { withFileTypes: true });
+  } catch {
+    return '';
+  }
+  for (const entry of entries) {
+    const pkgDir = join(spartacusRoot, entry.name);
+    try {
+      if (!statSync(pkgDir).isDirectory()) continue;
+      const { version } = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
+      parts.push(`${entry.name}@${version}`);
+    } catch {
+      parts.push(`${entry.name}@unknown`);
+    }
+  }
+  return parts.sort().join(',');
 }
 
-// The index is built on the first question and kept for the rest of the process.
 export function createCatalog(repoRoot) {
   const spartacusRoot = join(repoRoot, 'node_modules', '@spartacus');
   let index = null;
-  const getIndex = () => (index ??= buildIndex(spartacusRoot));
+  let stamp = null;
+
+  function getIndex() {
+    const current = versionStamp(spartacusRoot);
+    if (!index || current !== stamp) {
+      index = buildIndex(spartacusRoot);
+      stamp = current;
+    }
+    return index;
+  }
 
   function find(name) {
     const lower = name.toLowerCase();
@@ -30,11 +54,12 @@ export function createCatalog(repoRoot) {
           (!pkg || s.package.includes(pkg))
       )
       .slice(0, limit)
-      .map(({ name, kind, package: p, version, file, line }) => ({
+      .map(({ name, kind, package: p, version, import: specifier, file, line }) => ({
         name,
         kind,
         package: p,
         version,
+        import: specifier,
         file,
         line,
       }));
@@ -55,10 +80,11 @@ export function createCatalog(repoRoot) {
         kind: s.kind,
         package: s.package,
         version: s.version,
+        import: s.import,
         file: s.file,
         line: s.line,
         aliasOf: s.aliasOf,
-        signature: member ? membersOf(s.signature, member) : s.signature,
+        signature: member ? memberOf(s.signature, member) : s.signature,
       })),
     };
   }
