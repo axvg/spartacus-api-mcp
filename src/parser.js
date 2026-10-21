@@ -94,6 +94,34 @@ function hasExportModifier(node) {
   return (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 }
 
+// The bundler renames a symbol before a namespace re-exports it, as in
+// `type cartGroup_actions_d_CartAction = CartAction;`. Such a declaration is plumbing: it
+// points at another symbol of the same file and nothing imports it.
+function aliasTarget(statement) {
+  if (ts.isTypeAliasDeclaration(statement)) {
+    const { type } = statement;
+    if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)) return type.typeName.text;
+    return null;
+  }
+  if (ts.isVariableStatement(statement)) {
+    const [declaration] = statement.declarationList.declarations;
+    const type = declaration?.type;
+    if (type && ts.isTypeQueryNode(type) && ts.isIdentifier(type.exprName))
+      return type.exprName.text;
+  }
+  return null;
+}
+
+// `declare namespace X { export { a as A } }` publishes A, reachable as X.A once the file
+// exports X. Without this the symbols behind a namespace look internal.
+function namespaceExportsOf(statement) {
+  if (!ts.isModuleDeclaration(statement) || !statement.body) return null;
+  if (!ts.isModuleBlock(statement.body) || !ts.isIdentifier(statement.name)) return null;
+  const names = [];
+  for (const inner of statement.body.statements) names.push(...exportsOf(inner));
+  return names.length ? { namespace: statement.name.text, names } : null;
+}
+
 function readFile(file, pkg, version, importPath) {
   const text = readFileSync(file, 'utf8');
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
@@ -117,28 +145,58 @@ function readFile(file, pkg, version, importPath) {
     }
   }
 
+  const plumbing = new Map();
+  for (const statement of source.statements) {
+    for (const { name } of declarationsOf(statement)) {
+      const target = aliasTarget(statement);
+      if (target && declared.has(target)) plumbing.set(name, target);
+    }
+  }
+
+  const fileExports = new Map();
   for (const statement of source.statements) {
     for (const { local, public: publicName } of exportsOf(statement)) {
-      const source_ = declared.get(local);
-      if (!source_) continue;
+      fileExports.set(local, publicName);
+      const declaration = declared.get(local);
+      if (!declaration) continue;
       if (local === publicName) {
-        source_.exported = true;
+        declaration.exported = true;
         continue;
       }
-      source_.exportedAs = publicName;
+      declaration.exportedAs = publicName;
       if (!declared.has(publicName)) {
-        symbols.push({ ...source_, name: publicName, aliasOf: local, exported: true });
+        symbols.push({ ...declaration, name: publicName, aliasOf: local, exported: true });
       }
+    }
+  }
+
+  for (const statement of source.statements) {
+    const block = namespaceExportsOf(statement);
+    if (!block) continue;
+    const namespaceName = fileExports.get(block.namespace);
+    if (!namespaceName) continue;
+    for (const { local, public: publicName } of block.names) {
+      const target = plumbing.get(local) ?? local;
+      const declaration = declared.get(target);
+      if (!declaration) continue;
+      declaration.exported = true;
+      declaration.importName = namespaceName;
+      declaration.usage = `${namespaceName}.${publicName}`;
+      delete declaration.exportedAs;
     }
   }
 
   // An internal name cannot be written in an import, so it carries no specifier. The same
   // holds for a file that no entry point of the package publishes.
-  for (const symbol of symbols) {
-    if (symbol.exported && importPath) symbol.import = importPath;
-    if (symbol.exported) delete symbol.exportedAs;
+  const out = symbols.filter((symbol) => !(plumbing.has(symbol.name) && !symbol.exported));
+  for (const symbol of out) {
+    if (!symbol.exported) continue;
+    if (importPath) symbol.import = importPath;
+    symbol.importName ??= symbol.name;
+    symbol.usage ??= symbol.name;
+    delete symbol.exportedAs;
   }
-  return symbols;
+  return out;
 }
 
 export function buildIndex(spartacusRoot) {
