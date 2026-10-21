@@ -18,6 +18,10 @@ locally, reads only, talks to no backend and needs no credential.
   included.
 - **Re-export aliases**: names published through `export { X as Y }` and `export type { X as Y }`
   resolve to the declaration they rename, and carry `aliasOf`.
+- **JSDoc**: the documentation the Spartacus authors wrote travels with the declaration, for the
+  symbol and for each member, `@param` and `@returns` included.
+- **Usage examples**: where the storefront already uses a symbol, with the file, the line, the
+  import that file uses and the surrounding code. They compile against the installed version.
 - **Installed versions**: every answer states the package version the project runs. The index
   rebuilds itself when those versions change.
 
@@ -61,7 +65,8 @@ The path is the root of the storefront, the folder that holds `node_modules`, no
 | Tool | Returns |
 |---|---|
 | `spartacus_search_symbols` | Symbols matching a name, with kind, package, version, import specifier, file and line. Filters by `kind` and `package`. |
-| `spartacus_get_signature` | The declaration of one symbol. `member` narrows it to the matching members, each one complete. |
+| `spartacus_get_signature` | The declaration of one symbol with its JSDoc. `member` answers with the matching members instead, each one complete and with its own JSDoc. |
+| `spartacus_find_examples` | Where the storefront already uses the symbol: file, line, the import that file uses and the code around it. Takes `limit` and `dir`. |
 | `spartacus_list_packages` | The installed `@spartacus` packages and their versions. |
 
 `spartacus_get_signature` with `name: OrderHistory`:
@@ -81,8 +86,23 @@ The path is the root of the storefront, the folder that holds `node_modules`, no
 
 With `name: ActiveCartFacade` and `member: addEntry`:
 
+```json
+{
+  "name": "addEntry",
+  "doc": "Add entry to active cart\n@param productCode\n@param quantity\n@param pickupStore",
+  "signature": "abstract addEntry(productCode: string, quantity: number, pickupStore?: string): void;"
+}
 ```
-abstract addEntry(productCode: string, quantity: number, pickupStore?: string): void;
+
+`spartacus_find_examples` with `name: ActiveCartFacade`:
+
+```json
+{
+  "file": "src/app/common-components/product-card/product-card.component.ts",
+  "line": 26,
+  "import": "import { ActiveCartFacade, CartUiEventAddToCart } from '@spartacus/cart/base/root'",
+  "snippet": "logger = inject(LoggerService);\nactiveCartService = inject(ActiveCartFacade);\nmodalService = inject(LaunchDialogService);"
+}
 ```
 
 ## Layout
@@ -91,7 +111,8 @@ abstract addEntry(productCode: string, quantity: number, pickupStore?: string): 
 index.js       argument parsing, --self-check, start
 src/parser.js  walks the .d.ts files with the TypeScript compiler and builds the index
 src/query.js   search, signature and package lookups, index refresh
-src/tools.js   the three tool definitions
+src/usage.js   scans the storefront source for real uses of a symbol
+src/tools.js   the four tool definitions
 src/server.js  MCP server and request handlers
 test/          fixtures and node:test suite
 ```
@@ -114,8 +135,9 @@ SKIP and exits with 0, so it does not break a pipeline with no storefront instal
 - It does not resolve inheritance. Members a class gets from its parent are in the parent's
   declaration, not in the answer.
 - Aliases resolve inside one file. `export { X } from './other'` is not followed.
-- It reports what the types say, not how to use them. There is no JSDoc, no example and no
-  extension point in the answer yet.
+- Examples come from the storefront being read. A symbol the project has never used returns none.
+- It does not list extension points. Which service to replace or which config to set is not in the
+  answer.
 
 ## License
 
