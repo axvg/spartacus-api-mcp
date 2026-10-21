@@ -77,19 +77,21 @@ function declarationsOf(statement) {
   return name ? [{ name, kind, node: statement }] : [];
 }
 
-// Covers `export { X as Y }` and `export type { X as Y }`, both common in bundled types.
-function aliasesOf(statement, declared) {
+// Covers `export { X }`, `export { X as Y }` and both of their `export type` forms. A name
+// reaches the outside only through one of these statements or an export modifier, and only
+// that name can be written in an import.
+function exportsOf(statement) {
   if (!ts.isExportDeclaration(statement) || statement.moduleSpecifier) return [];
   const bindings = statement.exportClause;
   if (!bindings || !ts.isNamedExports(bindings)) return [];
-  const out = [];
-  for (const element of bindings.elements) {
-    if (!element.propertyName) continue;
-    const source = declared.get(element.propertyName.text);
-    if (!source || declared.has(element.name.text)) continue;
-    out.push({ ...source, name: element.name.text, aliasOf: source.name });
-  }
-  return out;
+  return bindings.elements.map((element) => ({
+    local: (element.propertyName ?? element.name).text,
+    public: element.name.text,
+  }));
+}
+
+function hasExportModifier(node) {
+  return (node.modifiers ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 }
 
 function readFile(file, pkg, version, importPath) {
@@ -104,17 +106,38 @@ function readFile(file, pkg, version, importPath) {
         kind,
         package: pkg,
         version,
-        import: importPath,
         file,
         line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
         doc: docOf(node),
         signature: node.getText(source),
+        exported: hasExportModifier(statement),
       };
       symbols.push(symbol);
       declared.set(name, symbol);
     }
   }
-  for (const statement of source.statements) symbols.push(...aliasesOf(statement, declared));
+
+  for (const statement of source.statements) {
+    for (const { local, public: publicName } of exportsOf(statement)) {
+      const source_ = declared.get(local);
+      if (!source_) continue;
+      if (local === publicName) {
+        source_.exported = true;
+        continue;
+      }
+      source_.exportedAs = publicName;
+      if (!declared.has(publicName)) {
+        symbols.push({ ...source_, name: publicName, aliasOf: local, exported: true });
+      }
+    }
+  }
+
+  // An internal name cannot be written in an import, so it carries no specifier. The same
+  // holds for a file that no entry point of the package publishes.
+  for (const symbol of symbols) {
+    if (symbol.exported && importPath) symbol.import = importPath;
+    if (symbol.exported) delete symbol.exportedAs;
+  }
   return symbols;
 }
 
@@ -142,10 +165,26 @@ export function buildIndex(spartacusRoot) {
     }
     for (const file of files) {
       const relative = file.slice(pkgDir.length + 1).replace(/\\/g, '/');
-      symbols.push(...readFile(file, pkg, version, byFile.get(relative) ?? pkg));
+      symbols.push(...readFile(file, pkg, version, byFile.get(relative)));
     }
   }
   return { symbols, packages };
+}
+
+// Members declared directly on the type. A parameter of a method is not a member, so the
+// search never descends into a signature.
+function directMembers(statement) {
+  if (ts.isClassDeclaration(statement) || ts.isInterfaceDeclaration(statement))
+    return statement.members ?? [];
+  if (ts.isEnumDeclaration(statement)) return statement.members ?? [];
+  if (ts.isTypeAliasDeclaration(statement) && ts.isTypeLiteralNode(statement.type))
+    return statement.type.members ?? [];
+  if (ts.isVariableStatement(statement)) {
+    const [declaration] = statement.declarationList.declarations;
+    const type = declaration?.type;
+    return type && ts.isTypeLiteralNode(type) ? (type.members ?? []) : [];
+  }
+  return [];
 }
 
 // Returns the exact declaration of the matching members, parsed from the symbol signature,
@@ -154,14 +193,12 @@ export function membersOf(signature, member) {
   const source = ts.createSourceFile('symbol.d.ts', signature, ts.ScriptTarget.Latest, true);
   const lower = member.toLowerCase();
   const found = [];
-  const visit = (node) => {
-    const name = node.name && ts.isIdentifier(node.name) ? node.name.text : null;
-    if (name && name.toLowerCase().includes(lower) && node.parent !== source) {
+  for (const statement of source.statements) {
+    for (const node of directMembers(statement)) {
+      const name = node.name && ts.isIdentifier(node.name) ? node.name.text : null;
+      if (!name || !name.toLowerCase().includes(lower)) continue;
       found.push({ name, doc: docOf(node), signature: node.getText(source) });
-      return;
     }
-    ts.forEachChild(node, visit);
-  };
-  ts.forEachChild(source, (statement) => ts.forEachChild(statement, visit));
+  }
   return found;
 }
