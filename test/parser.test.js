@@ -41,6 +41,26 @@ test('reports the public import specifier, not the file', () => {
   assert.equal(one('DemoFacade').import, '@spartacus/demo/root');
 });
 
+test('an internal name carries no import and names its public alias', () => {
+  const [internal] = catalog.getSignature({ name: 'es' }).results;
+  assert.equal(internal.exported, false);
+  assert.equal(internal.import, undefined);
+  assert.equal(internal.exportedAs, 'demoTranslationsEs');
+});
+
+test('a type published only under an alias is internal under its own name', () => {
+  const [internal] = catalog.getSignature({ name: 'DemoState' }).results;
+  assert.equal(internal.exported, false);
+  assert.equal(internal.import, undefined);
+  assert.equal(internal.exportedAs, 'PublicDemoState');
+  assert.equal(one('PublicDemoState').import, '@spartacus/demo/root');
+});
+
+test('a parameter is not a member', () => {
+  const [result] = catalog.getSignature({ name: 'DemoFacade', member: 'code' }).results;
+  assert.match(result.error, /no member matches code/);
+});
+
 test('reports the installed version', () => {
   assert.equal(one('DemoFacade').version, '9.9.9');
   assert.deepEqual(catalog.listPackages().packages, [
