@@ -55,12 +55,14 @@ export function createCatalog(repoRoot) {
           (!pkg || s.package.includes(pkg))
       )
       .slice(0, limit)
-      .map(({ name, kind, package: p, version, import: specifier, file, line }) => ({
+      .map(({ name, kind, package: p, version, exported, import: specifier, exportedAs, file, line }) => ({
         name,
         kind,
         package: p,
         version,
+        exported: Boolean(exported),
         import: specifier,
+        exportedAs,
         file,
         line,
       }));
@@ -82,7 +84,11 @@ export function createCatalog(repoRoot) {
           kind: s.kind,
           package: s.package,
           version: s.version,
+          // Only a name the package exports can be written in an import. An internal one
+          // says so, and points at the public name when it has one.
+          exported: Boolean(s.exported),
           import: s.import,
+          exportedAs: s.exportedAs,
           file: s.file,
           line: s.line,
           aliasOf: s.aliasOf,
