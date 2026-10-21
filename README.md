@@ -12,10 +12,12 @@ locally, reads only, talks to no backend and needs no credential.
 - **Symbol search**: find classes, interfaces, enums, types, functions, constants and namespaces by
   name, filtered by kind or package.
 - **Public import path**: the specifier to import from, for example `@spartacus/cart/base/root`,
-  taken from the `exports` map of each package, not the physical file.
+  taken from the `exports` map of each package, not the physical file. A name the package does not
+  export says `exported: false`, carries no specifier, and names the alias it is published under,
+  so a generated import never uses a name that does not exist.
 - **Exact signatures**: the whole declaration as the compiler sees it, with no truncation.
 - **Members**: ask for one member and get its complete declaration, parameters and return type
-  included.
+  included. Only members declared on the type match, never the parameters of its methods.
 - **Re-export aliases**: names published through `export { X as Y }` and `export type { X as Y }`
   resolve to the declaration they rename, and carry `aliasOf`.
 - **JSDoc**: the documentation the Spartacus authors wrote travels with the declaration, for the
@@ -77,6 +79,7 @@ The path is the root of the storefront, the folder that holds `node_modules`, no
   "kind": "interface",
   "package": "@spartacus/order",
   "version": "221121.11.0",
+  "exported": true,
   "import": "@spartacus/order/root",
   "file": "node_modules/@spartacus/order/types/spartacus-order-root.d.ts",
   "line": 57,
@@ -134,6 +137,8 @@ SKIP and exits with 0, so it does not break a pipeline with no storefront instal
 - It reads `<package>/types/**/*.d.ts`. A package that ships its types elsewhere is not indexed.
 - It does not resolve inheritance. Members a class gets from its parent are in the parent's
   declaration, not in the answer.
+- Exports declared inside a `declare namespace` block are not read, so a symbol published only
+  that way reports `exported: false`.
 - Aliases resolve inside one file. `export { X } from './other'` is not followed.
 - Examples come from the storefront being read. A symbol the project has never used returns none.
 - It does not list extension points. Which service to replace or which config to set is not in the
