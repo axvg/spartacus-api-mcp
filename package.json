@@ -1,0 +1,39 @@
+{
+  "name": "spartacus-api-mcp",
+  "version": "0.1.0",
+  "description": "Reads node_modules/@spartacus and returns the API declaration for the version you have installed",
+  "license": "MIT",
+  "author": "axvg",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "spartacus-api-mcp": "index.js"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node index.js",
+    "test": "node index.js --self-check"
+  },
+  "keywords": [
+    "mcp",
+    "spartacus",
+    "sap-commerce",
+    "angular",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axvg/spartacus-api-mcp.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}
