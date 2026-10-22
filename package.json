@@ -1,7 +1,7 @@
 {
   "name": "spartacus-api-mcp",
   "version": "0.1.0",
-  "description": "MCP server for SAP Spartacus: public import paths, API signatures and members, read from the version installed in your storefront",
+  "description": "MCP server for SAP Commerce Cloud composable storefront (Spartacus): public import paths, API signatures and members, read from the version installed in your storefront",
   "license": "MIT",
   "author": "axvg",
   "type": "module",
@@ -23,7 +23,8 @@
   "keywords": [
     "mcp",
     "spartacus",
-    "sap-commerce",
+    "composable-storefront",
+    "sap-commerce-cloud",
     "angular",
     "typescript"
   ],
