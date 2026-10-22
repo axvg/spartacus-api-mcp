@@ -1,11 +1,17 @@
 # spartacus-api-mcp
 
-MCP (Model Context Protocol) server for SAP Spartacus, the composable storefront. It answers what
-an API looks like in the version a project has installed, so an AI assistant writes imports and
-calls that compile instead of ones it remembers from another release.
+MCP (Model Context Protocol) server for SAP Commerce Cloud composable storefront, the frontend
+still published on npm as `@spartacus`. It answers what an API looks like in the version a project
+has installed, so an AI assistant writes imports and calls that compile instead of ones it
+remembers from another release.
 
 It reads the `.d.ts` files under `node_modules/@spartacus` with the TypeScript compiler. It runs
 locally, reads only, talks to no backend and needs no credential.
+
+SAP documents the product as
+[composable storefront](https://help.sap.com/docs/SAP_COMMERCE_COMPOSABLE_STOREFRONT), while the
+packages and the source repository still carry the Spartacus name. Both names appear here for that
+reason.
 
 ## Features
 
